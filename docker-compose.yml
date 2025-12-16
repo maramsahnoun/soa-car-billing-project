@@ -1,0 +1,60 @@
+services:
+  # ===== BASE CAR =====
+  car-db:
+    image: mysql:8.0
+    container_name: car-db
+    environment:
+      MYSQL_ROOT_PASSWORD: maram
+      MYSQL_DATABASE: car_db
+    volumes:
+      - car_db_data:/var/lib/mysql
+      - ./db-init/car_db.sql:/docker-entrypoint-initdb.d/01_car.sql
+    ports:
+      - "3307:3306"
+
+  # ===== BASE BILLING =====
+  billing-db:
+    image: mysql:8.0
+    container_name: billing-db
+    environment:
+      MYSQL_ROOT_PASSWORD: maram
+      MYSQL_DATABASE: billing_db
+    volumes:
+      - billing_db_data:/var/lib/mysql
+      - ./db-init/billing_db.sql:/docker-entrypoint-initdb.d/02_billing.sql
+    ports:
+      - "3308:3306"
+
+  # ===== CAR SERVICE =====
+  car-service:
+    build: ./car-service
+    container_name: car-service
+    depends_on:
+      - car-db
+    environment:
+      DB_HOST: car-db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: maram
+      DB_NAME: car_db
+    ports:
+      - "3001:3001"
+
+  # ===== BILLING SERVICE =====
+  billing-service:
+    build: ./billing-service
+    container_name: billing-service
+    depends_on:
+      - billing-db
+    environment:
+      DB_HOST: billing-db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: maram
+      DB_NAME: billing_db
+    ports:
+      - "8001:8001"
+
+volumes:
+  car_db_data:
+  billing_db_data:
