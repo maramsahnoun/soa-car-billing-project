@@ -5,6 +5,7 @@ node_modules/
 venv/
 __pycache__/
 *.pyc
+env
 
 # Maven
 target/
@@ -17,6 +18,18 @@ dependency-reduced-pom.xml
 .project
 .settings/
 
+# .NET / C#
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+*.user
+*.suo
+*.nupkg
+
 # Env (secrets)
 .env
 
@@ -25,4 +38,8 @@ dependency-reduced-pom.xml
 .vscode/
 .idea/
 *.iml
+Thumbs.db
+
+# Logs
+*.log
 
