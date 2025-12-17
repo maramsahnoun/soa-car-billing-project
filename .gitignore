@@ -10,6 +10,12 @@ __pycache__/
 target/
 *.jar
 *.war
+dependency-reduced-pom.xml
+
+# Eclipse
+.classpath
+.project
+.settings/
 
 # Env (secrets)
 .env
