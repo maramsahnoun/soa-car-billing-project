@@ -6,8 +6,17 @@ venv/
 __pycache__/
 *.pyc
 
+# Maven
+target/
+*.jar
+*.war
+
 # Env (secrets)
 .env
 
 # OS
 .DS_Store
+.vscode/
+.idea/
+*.iml
+
