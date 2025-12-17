@@ -6,7 +6,7 @@ import service.ReservationServiceImpl;
 public class ReservationServer {
 
     public static void main(String[] args) {
-    	Endpoint.publish("http://0.0.0.0:8084/reservation", new ReservationServiceImpl());
+    	Endpoint.publish("http://0.0.0.0:8083/reservation", new ReservationServiceImpl());
 
         System.out.println("SOAP Reservation Service running...");
     }

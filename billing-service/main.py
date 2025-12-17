@@ -138,8 +138,6 @@ def get_payment_by_reservation(reservation_id: int):
 # ----------- PATCH /payments/{id}/status -----------
 
 @app.patch("/payments/{payment_id}/status")
-
-@app.patch("/payments/{payment_id}/status")
 def update_payment_status(payment_id: int, data: PaymentStatusUpdate):
     if data.statut not in ["EN_ATTENTE", "SUCCES", "ECHEC"]:
         raise HTTPException(status_code=400, detail="Statut invalide")

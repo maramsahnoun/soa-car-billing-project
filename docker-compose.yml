@@ -11,6 +11,11 @@ services:
       - ./db-init/car_db.sql:/docker-entrypoint-initdb.d/01_car.sql
     ports:
       - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pmaram"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ===== BASE BILLING =====
   billing-db:
@@ -24,13 +29,55 @@ services:
       - ./db-init/billing_db.sql:/docker-entrypoint-initdb.d/02_billing.sql
     ports:
       - "3308:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pmaram"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # ===== CAR SERVICE =====
+  # ===== BASE RESERVATION =====
+  reservation-db:
+    image: mysql:8.0
+    container_name: reservation-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: reservation_db
+    volumes:
+      - reservation_db_data:/var/lib/mysql
+      - ./reservation/reservation_db.sql:/docker-entrypoint-initdb.d/03_reservation.sql
+    ports:
+      - "3309:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===== BASE MAINTENANCE =====
+  maintenance-db:
+    image: mysql:8.0
+    container_name: maintenance-db
+    environment:
+      MYSQL_ROOT_PASSWORD: maram
+      MYSQL_DATABASE: maintenance_db
+    volumes:
+      - maintenance_db_data:/var/lib/mysql
+      - ./db-init/maintenance_db.sql:/docker-entrypoint-initdb.d/04_maintenance.sql
+    ports:
+      - "3310:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pmaram"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===== CAR SERVICE (Node.js REST) =====
   car-service:
     build: ./car-service
     container_name: car-service
     depends_on:
-      - car-db
+      car-db:
+        condition: service_healthy
     environment:
       DB_HOST: car-db
       DB_PORT: 3306
@@ -40,12 +87,13 @@ services:
     ports:
       - "3001:3001"
 
-  # ===== BILLING SERVICE =====
+  # ===== BILLING SERVICE (Python FastAPI REST) =====
   billing-service:
     build: ./billing-service
     container_name: billing-service
     depends_on:
-      - billing-db
+      billing-db:
+        condition: service_healthy
     environment:
       DB_HOST: billing-db
       DB_PORT: 3306
@@ -55,6 +103,36 @@ services:
     ports:
       - "8001:8001"
 
+  # ===== RESERVATION SERVICE (Java SOAP) =====
+  reservation-service:
+    build: ./reservation
+    container_name: reservation-service
+    depends_on:
+      reservation-db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://reservation-db:3306/reservation_db
+      DB_USERNAME: root
+      DB_PASSWORD: rootpassword
+    ports:
+      - "8083:8083"
+
+  # ===== MAINTENANCE SERVICE (.NET SOAP) =====
+  maintenance-service:
+    build: ./MaintenanceService
+    container_name: maintenance-service
+    depends_on:
+      maintenance-db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      MAINTENANCE_CONN: "Server=maintenance-db;Database=maintenance_db;User Id=root;Password=maram;SslMode=None"
+      CAR_SERVICE_BASEURL: "http://car-service:3001"
+    ports:
+      - "5000:5000"
+
 volumes:
   car_db_data:
   billing_db_data:
+  reservation_db_data:
+  maintenance_db_data:
