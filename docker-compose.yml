@@ -131,6 +131,23 @@ services:
     ports:
       - "5000:5000"
 
+  # ===== FRONTEND DASHBOARD =====
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    depends_on:
+      - car-service
+      - billing-service
+      - reservation-service
+      - maintenance-service
+    environment:
+      CAR_SERVICE_URL: "http://car-service:3001"
+      BILLING_SERVICE_URL: "http://billing-service:8001"
+      MAINTENANCE_SERVICE_URL: "http://maintenance-service:5000"
+      RESERVATION_SERVICE_URL: "http://reservation-service:8083"
+    ports:
+      - "8080:8080"
+
 volumes:
   car_db_data:
   billing_db_data:
