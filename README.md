@@ -210,10 +210,6 @@ soa-car-billing-project/
 └── README.md
 ```
 
-## 👥 Authors
-
-- **Maram Sahnoun** - *Initial work*
-
 ## 📄 License
 
 This project is for educational purposes.
