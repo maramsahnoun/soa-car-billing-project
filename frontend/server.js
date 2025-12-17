@@ -42,7 +42,7 @@ app.get('/api/health', async (req, res) => {
 
     // Check Maintenance Service (SOAP - just try to connect)
     try {
-        await axios.get(`${MAINTENANCE_SERVICE}/MaintenanceService.asmx`, { timeout: 3000 });
+        await axios.get(`${MAINTENANCE_SERVICE}/ws/maintenance`, { timeout: 3000 });
         results.maintenance = { status: 'OK', message: 'SOAP Service Available' };
     } catch (e) {
         if (e.response) {
@@ -133,69 +133,80 @@ app.get('/api/payments/:id/invoice', async (req, res) => {
 });
 
 // ============ MAINTENANCE SERVICE PROXY (SOAP) ============
+const MAINTENANCE_NS = 'http://maintenance-service.soa.com/2024/12';
+
 app.get('/api/maintenance/all', async (req, res) => {
     const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="${MAINTENANCE_NS}">
   <soap:Body>
-    <GetAllMaintenances xmlns="http://tempuri.org/" />
+    <m:GetUpcomingMaintenances />
   </soap:Body>
 </soap:Envelope>`;
 
     try {
         const response = await axios.post(
-            `${MAINTENANCE_SERVICE}/MaintenanceService.asmx`,
+            `${MAINTENANCE_SERVICE}/ws/maintenance`,
             soapRequest,
             {
                 headers: {
                     'Content-Type': 'text/xml; charset=utf-8',
-                    'SOAPAction': '"http://tempuri.org/GetAllMaintenances"'
-                }
+                    'SOAPAction': `"${MAINTENANCE_NS}/IMaintenanceService/GetUpcomingMaintenances"`
+                },
+                timeout: 10000
             }
         );
         res.json({ success: true, data: response.data });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error('Maintenance error:', e.response?.data || e.message);
+        res.status(500).json({ error: e.message, details: e.response?.data });
     }
 });
 
 app.post('/api/maintenance/create', async (req, res) => {
     const { carId, type, description } = req.body;
+    const today = new Date().toISOString();
     const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="${MAINTENANCE_NS}">
   <soap:Body>
-    <CreateMaintenance xmlns="http://tempuri.org/">
-      <request>
-        <CarId>${carId}</CarId>
-        <Type>${type}</Type>
-        <Description>${description}</Description>
-      </request>
-    </CreateMaintenance>
+    <m:CreateMaintenance>
+      <m:vehicleId>${carId}</m:vehicleId>
+      <m:maintenanceType>${type}</m:maintenanceType>
+      <m:description>${description}</m:description>
+      <m:scheduledDate>${today}</m:scheduledDate>
+    </m:CreateMaintenance>
   </soap:Body>
 </soap:Envelope>`;
 
     try {
         const response = await axios.post(
-            `${MAINTENANCE_SERVICE}/MaintenanceService.asmx`,
+            `${MAINTENANCE_SERVICE}/ws/maintenance`,
             soapRequest,
             {
                 headers: {
                     'Content-Type': 'text/xml; charset=utf-8',
-                    'SOAPAction': '"http://tempuri.org/CreateMaintenance"'
-                }
+                    'SOAPAction': `"${MAINTENANCE_NS}/IMaintenanceService/CreateMaintenance"`
+                },
+                timeout: 10000
             }
         );
         res.json({ success: true, data: response.data });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error('Maintenance create error:', e.response?.data || e.message);
+        res.status(500).json({ error: e.message, details: e.response?.data });
     }
 });
 
 // ============ RESERVATION SERVICE PROXY (SOAP) ============
+// Note: The Java service uses French method names
 app.get('/api/reservations/all', async (req, res) => {
+    // Get reservations by client (use clientId=1 for demo)
+    const clientId = req.query.clientId || 1;
     const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://service/">
   <soapenv:Body>
-    <ser:getAllReservations/>
+    <ser:reservationsParClient>
+      <arg0>${clientId}</arg0>
+    </ser:reservationsParClient>
   </soapenv:Body>
 </soapenv:Envelope>`;
 
@@ -203,25 +214,30 @@ app.get('/api/reservations/all', async (req, res) => {
         const response = await axios.post(
             `${RESERVATION_SERVICE}/reservation`,
             soapRequest,
-            { headers: { 'Content-Type': 'text/xml; charset=utf-8' } }
+            { 
+                headers: { 'Content-Type': 'text/xml; charset=utf-8' },
+                timeout: 10000
+            }
         );
-        res.json({ success: true, data: response.data });
+        res.json({ success: true, clientId, data: response.data });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error('Reservation error:', e.response?.data || e.message);
+        res.status(500).json({ error: e.message, details: e.response?.data });
     }
 });
 
 app.post('/api/reservations/create', async (req, res) => {
     const { clientId, carId, startDate, endDate } = req.body;
+    // Format dates for Java Date type (use milliseconds timestamp)
     const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://service/">
   <soapenv:Body>
-    <ser:createReservation>
-      <clientId>${clientId}</clientId>
-      <carId>${carId}</carId>
-      <startDate>${startDate}</startDate>
-      <endDate>${endDate}</endDate>
-    </ser:createReservation>
+    <ser:creerReservation>
+      <arg0>${clientId}</arg0>
+      <arg1>${carId}</arg1>
+      <arg2>${startDate}</arg2>
+      <arg3>${endDate}</arg3>
+    </ser:creerReservation>
   </soapenv:Body>
 </soapenv:Envelope>`;
 
@@ -229,11 +245,15 @@ app.post('/api/reservations/create', async (req, res) => {
         const response = await axios.post(
             `${RESERVATION_SERVICE}/reservation`,
             soapRequest,
-            { headers: { 'Content-Type': 'text/xml; charset=utf-8' } }
+            { 
+                headers: { 'Content-Type': 'text/xml; charset=utf-8' },
+                timeout: 10000
+            }
         );
         res.json({ success: true, data: response.data });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error('Reservation create error:', e.response?.data || e.message);
+        res.status(500).json({ error: e.message, details: e.response?.data });
     }
 });
 
