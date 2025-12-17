@@ -220,4 +220,4 @@ This project is for educational purposes.
 
 ---
 
-Made with ❤️ for SOA Course
+Made with ❤️
